@@ -1,5 +1,10 @@
 Revision history for DBIx-TableLoader
 
-1.000 2011-02-27
+1.001     2011-07-14T23:33:27Z
+
+  - Make DBI tests regular tests rather than author tests
+  - Superficial dist/release changes
+
+1.000     2011-02-28T04:13:37Z
 
   - Initial release
