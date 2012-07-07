@@ -11,9 +11,11 @@ use strict;
 use warnings;
 
 package DBIx::TableLoader;
-BEGIN {
-  $DBIx::TableLoader::VERSION = '1.001';
+{
+  $DBIx::TableLoader::VERSION = '1.002';
 }
+# git description: v1.001-7-gc27da22
+
 BEGIN {
   $DBIx::TableLoader::AUTHORITY = 'cpan:RWSTAUNER';
 }
@@ -21,6 +23,7 @@ BEGIN {
 
 use Carp qw(croak);
 #use DBI 1.13 (); # oldest DBI on CPAN as of 2011-02-15; Has SQL_LONGVARCHAR
+use Try::Tiny 0.09;
 
 
 sub new {
@@ -69,6 +72,7 @@ sub base_defaults {
     drop_suffix          => '',
     get_row              => undef,
     grep_rows            => undef,
+    handle_invalid_row   => undef,
     map_rows             => undef,
     # default_name() method will default to 'data' if 'name' is blank
     # this way subclasses don't have to override this value in defaults()
@@ -157,7 +161,7 @@ sub default_name {
 
 sub default_column_type {
   my ($self) = @_;
-  return $self->{default_column_type} ||= eval {
+  return $self->{default_column_type} ||= try {
     $self->_data_type_from_driver($self->default_sql_data_type);
   }
     # outside the eval in case there was an error
@@ -167,7 +171,7 @@ sub default_column_type {
 
 sub default_sql_data_type {
   my ($self) = @_;
-  $self->{default_sql_data_type} ||= eval {
+  $self->{default_sql_data_type} ||= try {
     # if this doesn't work default_column_type will just use 'text'
     require DBI;
     DBI::SQL_LONGVARCHAR();
@@ -257,26 +261,56 @@ sub get_row {
   my $row;
 
   GETROW: {
-    $row = $self->_get_custom_or_raw_row();
+    $row = $self->_get_custom_or_raw_row()
+      or last GETROW;
+
     # call grep_rows with the same semantics as map_rows (below)
-    if( $row && $self->{grep_rows} ){
+    if( $self->{grep_rows} ){
       local $_ = $row;
       # if grep returns false try the block again
       redo GETROW
         unless $self->{grep_rows}->($row, $self);
     }
+
+    # Send the row first since it's the important part.
+    # This isn't a method call, and $self will likely be seldom used.
+    if( $self->{map_rows} ){
+      # localize $_ to the $row for consistency with the built in map()
+      local $_ = $row;
+      # also pass row as the first argument to simulate a normal function call
+      $row = $self->{map_rows}->($row, $self);
+    }
+
+    # validate the row before passing a bad value to the DBI
+    $row = try {
+      $self->validate_row($row);
+    }
+    catch {
+      # if there was an error, pass it through the handler
+      # the handler should die, return a row, or return false to skip
+      $self->handle_invalid_row($_[0], $row);
+    }
+      or redo GETROW;
   }
 
-  # If a row was found pass it through the map_rows sub (if we have one).
-  # Send the row first since it's the important part.
-  # This isn't a method call, and $self will likely be seldom used.
-  if( $row && $self->{map_rows} ){
-    # localize $_ to the $row for consistency with the built in map()
-    local $_ = $row;
-    # also pass row as the first argument to simulate a normal function call
-    $row = $self->{map_rows}->($row, $self);
+  return $row;
+}
+
+
+sub handle_invalid_row {
+  my ($self, $error, $row) = @_;
+
+  if( my $handler = $self->{handle_invalid_row} ){
+    die $error if $handler eq 'die';
+    if( $handler eq 'warn' ){
+      warn $error;
+      return $row;
+    }
+    # otherwise it should be a coderef (or a method name (for a subclass maybe))
+    return $self->$handler($error, $row);
   }
 
+  # pass through if no handler was defined
   return $row;
 }
 
@@ -302,8 +336,8 @@ sub insert_all {
   my $rows = 0;
   my $sth = $self->{dbh}->prepare($self->insert_sql);
   while( my $row = $self->get_row() ){
-    ++$rows;
     $sth->execute(@$row);
+    ++$rows;
   }
 
   return $rows;
@@ -366,15 +400,32 @@ sub quoted_column_names {
   ];
 }
 
+
+sub validate_row {
+  my ($self, $row) = @_;
+
+  # DBI will croak if exec'd with different numbers
+  my $num_columns = @{ $self->columns };
+
+  die 'Row has ' . @$row . ' fields when ' .  $num_columns . ' are expected'
+    if @$row != $num_columns;
+
+  # are there other validation checks we can do?
+
+  return $row;
+}
+
 1;
 
 
 __END__
 =pod
 
-=for :stopwords Randy Stauner CSV SQLite PostgreSQL MySQL TODO arrayrefs cpan testmatrix
-url annocpan anno bugtracker rt cpants kwalitee diff irc mailto metadata
-placeholders
+=encoding utf-8
+
+=for :stopwords Randy Stauner ACKNOWLEDGEMENTS CSV SQLite PostgreSQL MySQL TODO arrayrefs
+cpan testmatrix url annocpan anno bugtracker rt cpants kwalitee diff irc
+mailto metadata placeholders metacpan
 
 =head1 NAME
 
@@ -382,7 +433,7 @@ DBIx::TableLoader - Easily load a database table from a data set
 
 =head1 VERSION
 
-version 1.001
+version 1.002
 
 =head1 SYNOPSIS
 
@@ -557,6 +608,49 @@ Returns a single row of data at a time (as an arrayref).
 This method will be called repeatedly until it returns C<undef>.
 The returned arrayref will be flattened and passed to L<DBI/execute>.
 
+=head2 handle_invalid_row
+
+This is called from L</get_row> when a row is determined to be invalid
+(when L</validate_row> throws an error).
+
+If C<handle_invalid_row> was not specified in the constructor
+this method is a no-op:
+the original row will be returned (and eventually passed to L<DBI/execute>).
+
+Possible values for the C<handle_invalid_row> option:
+
+=over 4
+
+=item *
+
+C<die>  - Calls C<die()>  with the error message
+
+=item *
+
+C<warn> - Calls C<warn()> with the error message and returns the row unmodified
+
+=item * code ref
+
+If it's a subroutine reference it is called as a method,
+receiving the loader object, the error message, and the row:
+
+  $handler->($loader, $error, $row);
+
+The handler should either C<die> to cease processing,
+return false to skip this row and get the next one,
+or return a (possibly modified) row that will be passed to L<DBI/execute>.
+
+This allows you to, for example, write to a log when a bad row
+is found without aborting your transaction:
+
+  handle_invalid_row => sub {
+    my ($self, $error, $row) = @_;
+    $logger->log(['Bad row: %s: %s', $error, $row]);
+    return; # return false to skip this row and move to the next one
+  }
+
+=back
+
 =head2 insert_sql
 
 Generate the C<INSERT> SQL statement that will be passed to L<DBI/prepare>.
@@ -565,7 +659,7 @@ Generate the C<INSERT> SQL statement that will be passed to L<DBI/prepare>.
 
 Execute an C<INSERT> statement on the database handle for each row of data.
 It will call L<DBI/prepare> using L</insert_sql>
-and then call L<DBI/execure> once for each row returned by L</get_row>.
+and then call L<DBI/execute> once for each row returned by L</get_row>.
 
 =head2 load
 
@@ -618,6 +712,25 @@ Passes C<catalog>, C<schema>, and C<name> attributes to L<DBI/quote_identifier>.
   # ['"column1"', '"column two"']
 
 Returns an arrayref of column names quoted by the database driver.
+
+=head2 validate_row
+
+Called from L</get_row> to check that the provided row is valid.
+
+It may C<die> for any error
+which will be caught in L</get_row>
+and the error will be passed to L</handle_invalid_row>.
+
+The return value works like that of L</handle_invalid_row>:
+On success, the valid row (possibly modified) should be returned.
+If a false value is returned L</get_row> will attempt to
+get another row.
+
+Currently this only checks that the number of fields in the row
+matches the number of columns expected,
+however other checks may be added in the future.
+Subclasses can overwrite this to define their own validations
+(though calling the original (superclass method) is recommended).
 
 =for test_synopsis my (@connection_args, $dbh, $data);
 
@@ -719,6 +832,14 @@ If it returns false the next row will be fetched and the process will repeat
   grep_rows => sub { $_->[1] =~ /something/ } # accept the row if it matches
 
   grep_rows => sub { my ($row, $obj) = @_; do_something(); } # 2 variables
+
+=item *
+
+C<handle_invalid_row> - How to handle invalid rows.
+
+Can be C<die>, C<warn>, or a sub (coderef).
+See L</handle_invalid_row> for more details.
+Default is to ignore (in which case DBI will likely error).
 
 =item *
 
@@ -1007,9 +1128,9 @@ progress on the request by the system.
 =head2 Source Code
 
 
-L<http://github.com/rwstauner/DBIx-TableLoader>
+L<https://github.com/rwstauner/DBIx-TableLoader>
 
-  git clone http://github.com/rwstauner/DBIx-TableLoader
+  git clone https://github.com/rwstauner/DBIx-TableLoader.git
 
 =head1 AUTHOR
 

@@ -1,5 +1,10 @@
 Revision history for DBIx-TableLoader
 
+1.002     2012-07-07T21:49:40Z
+
+  - Enable custom error handling via 'handle_invalid_row' option
+  - use Try::Tiny;
+
 1.001     2011-07-14T23:33:27Z
 
   - Make DBI tests regular tests rather than author tests

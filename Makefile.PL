@@ -9,29 +9,35 @@ use ExtUtils::MakeMaker 6.30;
 
 
 my %WriteMakefileArgs = (
-  'ABSTRACT' => 'Easily load a database table from a data set',
-  'AUTHOR' => 'Randy Stauner <rwstauner@cpan.org>',
-  'BUILD_REQUIRES' => {
-    'File::Find' => '0',
-    'File::Temp' => '0',
-    'ExtUtils::MakeMaker' => '6.30',
-    'Test::MockObject' => '1.09',
-    'Test::More' => '0.96'
+  "ABSTRACT" => "Easily load a database table from a data set",
+  "AUTHOR" => "Randy Stauner <rwstauner\@cpan.org>",
+  "BUILD_REQUIRES" => {
+    "ExtUtils::MakeMaker" => 0,
+    "File::Find" => 0,
+    "File::Spec::Functions" => 0,
+    "File::Temp" => 0,
+    "List::Util" => 0,
+    "Test::Fatal" => 0,
+    "Test::MockObject" => "1.09",
+    "Test::More" => "0.96"
   },
-  'CONFIGURE_REQUIRES' => {
-    'ExtUtils::MakeMaker' => '6.30'
+  "CONFIGURE_REQUIRES" => {
+    "ExtUtils::MakeMaker" => "6.30"
   },
-  'DISTNAME' => 'DBIx-TableLoader',
-  'EXE_FILES' => [],
-  'LICENSE' => 'perl',
-  'NAME' => 'DBIx::TableLoader',
-  'PREREQ_PM' => {
-    'Carp' => '0',
-    'DBI' => '0'
+  "DISTNAME" => "DBIx-TableLoader",
+  "EXE_FILES" => [],
+  "LICENSE" => "perl",
+  "NAME" => "DBIx::TableLoader",
+  "PREREQ_PM" => {
+    "Carp" => 0,
+    "DBI" => 0,
+    "Try::Tiny" => "0.09",
+    "strict" => 0,
+    "warnings" => 0
   },
-  'VERSION' => '1.001',
-  'test' => {
-    'TESTS' => 't/*.t'
+  "VERSION" => "1.002",
+  "test" => {
+    "TESTS" => "t/*.t"
   }
 );
 
