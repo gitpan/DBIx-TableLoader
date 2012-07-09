@@ -62,7 +62,7 @@
    "provides" : {
       "DBIx::TableLoader" : {
          "file" : "lib/DBIx/TableLoader.pm",
-         "version" : "1.002"
+         "version" : "1.003"
       }
    },
    "release_status" : "stable",
@@ -78,7 +78,7 @@
          "web" : "https://github.com/rwstauner/DBIx-TableLoader"
       }
    },
-   "version" : "1.002",
+   "version" : "1.003",
    "x_Dist_Zilla" : {
       "plugins" : [
          {

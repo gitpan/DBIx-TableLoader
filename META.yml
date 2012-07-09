@@ -36,7 +36,7 @@ no_index:
 provides:
   DBIx::TableLoader:
     file: lib/DBIx/TableLoader.pm
-    version: 1.002
+    version: 1.003
 requires:
   Carp: 0
   DBI: 0
@@ -48,7 +48,7 @@ resources:
   bugtracker: http://rt.cpan.org/Public/Dist/Display.html?Name=DBIx-TableLoader
   homepage: https://github.com/rwstauner/DBIx-TableLoader
   repository: https://github.com/rwstauner/DBIx-TableLoader.git
-version: 1.002
+version: 1.003
 x_Dist_Zilla:
   plugins:
     -
