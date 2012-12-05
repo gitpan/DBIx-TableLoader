@@ -12,9 +12,9 @@ use warnings;
 
 package DBIx::TableLoader;
 {
-  $DBIx::TableLoader::VERSION = '1.003';
+  $DBIx::TableLoader::VERSION = '1.100';
 }
-# git description: v1.002-1-g87c65f0
+# git description: v1.003-5-gb3c3fb7
 
 BEGIN {
   $DBIx::TableLoader::AUTHORITY = 'cpan:RWSTAUNER';
@@ -353,10 +353,12 @@ sub insert_all {
 
 sub load {
   my ($self) = @_;
+  my $rows;
 
   # is it appropriate/sufficient to call prepare_data() from new()?
 
-  # TODO: transaction
+  try {
+
   $self->{dbh}->begin_work()
     if $self->{transaction};
 
@@ -366,10 +368,21 @@ sub load {
   $self->create()
     if $self->{create};
 
-  my $rows = $self->insert_all();
+    $rows = $self->insert_all();
 
   $self->{dbh}->commit()
     if $self->{transaction};
+
+  }
+  catch {
+    # explicitly end the transaction that we started
+    # in case this isn't the last thing being done with the dbh
+    $self->{dbh}->rollback()
+      if $self->{transaction};
+
+    # propagate the exception
+    die $_[0];
+  };
 
   return $rows;
 }
@@ -424,8 +437,8 @@ sub validate_row {
 
 1;
 
-
 __END__
+
 =pod
 
 =encoding utf-8
@@ -440,7 +453,7 @@ DBIx::TableLoader - Easily load a database table from a data set
 
 =head1 VERSION
 
-version 1.003
+version 1.100
 
 =head1 SYNOPSIS
 
@@ -1151,4 +1164,3 @@ This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
-

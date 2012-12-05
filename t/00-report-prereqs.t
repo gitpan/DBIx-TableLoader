@@ -24,9 +24,12 @@ my @modules = qw(
   File::Spec::Functions
   File::Temp
   List::Util
+  Pod::Coverage::TrustPod
+  Test::CPAN::Meta
   Test::Fatal
-  Test::MockObject
   Test::More
+  Test::Pod
+  Test::Pod::Coverage
   Try::Tiny
   perl
   strict
@@ -62,7 +65,7 @@ for my $mod ( @modules ) {
     push @reports, ["missing", $mod];
   }
 }
-    
+
 if ( @reports ) {
   my $vl = max map { length $_->[0] } @reports;
   my $ml = max map { length $_->[1] } @reports;

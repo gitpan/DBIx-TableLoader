@@ -18,7 +18,6 @@ my %WriteMakefileArgs = (
     "File::Temp" => 0,
     "List::Util" => 0,
     "Test::Fatal" => 0,
-    "Test::MockObject" => "1.09",
     "Test::More" => "0.96"
   },
   "CONFIGURE_REQUIRES" => {
@@ -35,7 +34,7 @@ my %WriteMakefileArgs = (
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "1.003",
+  "VERSION" => "1.100",
   "test" => {
     "TESTS" => "t/*.t"
   }

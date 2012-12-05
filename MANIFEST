@@ -11,10 +11,12 @@ lib/DBIx/TableLoader.pm
 t/00-compile.t
 t/00-report-prereqs.t
 t/default_column_type.t
+t/lib/TLDBH.pm
 t/methods.t
 t/sql.t
 t/sqlite.t
 t/subclass.t
+t/transaction.t
 t/validate.t
 xt/author/critic.t
 xt/author/pod-spell.t
